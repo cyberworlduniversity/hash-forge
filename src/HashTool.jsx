@@ -12,12 +12,11 @@ function md5(input) {
   function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
   function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|(~d)),a,b,x,s,t);}
 
-  const str = unescape(encodeURIComponent(input));
-  const bArr = [];
-  for (let i = 0; i < str.length; i++) bArr.push(str.charCodeAt(i));
+  const bytes = input instanceof Uint8Array ? input : new TextEncoder().encode(input);
+  const bArr = Array.from(bytes);
   bArr.push(128);
   while (bArr.length % 64 !== 56) bArr.push(0);
-  const len = (str.length * 8);
+  const len = (bytes.length * 8);
   bArr.push(len & 0xff, (len >> 8) & 0xff, (len >> 16) & 0xff, (len >> 24) & 0xff, 0, 0, 0, 0);
 
   const words = [];
@@ -54,7 +53,7 @@ function md5(input) {
 }
 
 async function generateHash(text, algo) {
-  if (algo === "MD5") return md5(text);
+  if (algo === "MD5") return md5(new TextEncoder().encode(text));
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
   const hashBuffer = await crypto.subtle.digest(algo, data);
@@ -65,8 +64,7 @@ async function generateHash(text, algo) {
 async function generateFileHash(file, algo) {
   const buffer = await file.arrayBuffer();
   if (algo === "MD5") {
-    const text = new TextDecoder().decode(buffer);
-    return md5(text);
+    return md5(new Uint8Array(buffer));
   }
   const hashBuffer = await crypto.subtle.digest(algo, buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -386,3 +384,37 @@ export default function HashTool() {
                     value={compareHash}
                     onChange={e => { setCompareHash(e.target.value); setFileVerifyResult(null); }}
  
+
+                    />
+                  <button onClick={handleFileVerify} disabled={!compareHash.trim()} style={{
+                    background: "linear-gradient(135deg, #4d96ff, #6bcb77)",
+                    color: "#000", border: "none", borderRadius: 8,
+                    padding: "10px 18px", fontFamily: "inherit", fontWeight: 700,
+                    fontSize: 12, cursor: compareHash.trim() ? "pointer" : "not-allowed",
+                    opacity: compareHash.trim() ? 1 : 0.5,
+                  }}>VERIFY FILE HASH</button>
+                </div>
+                {fileVerifyResult !== null && (
+                  <div style={{
+                    marginTop: 12, padding: "14px 16px", borderRadius: 8,
+                    background: fileVerifyResult ? "rgba(107,203,119,0.1)" : "rgba(255,107,107,0.1)",
+                    border: `1px solid ${fileVerifyResult ? "#6bcb77" : "#ff6b6b"}`,
+                    color: fileVerifyResult ? "#6bcb77" : "#ff6b6b", fontSize: 13,
+                  }}>
+                    {fileVerifyResult ? "✓ File hash matches." : "✕ File hash does not match."}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <div style={{
+        maxWidth: 800, margin: "0 auto", padding: "0 40px 32px",
+        color: "#555", fontSize: 11, lineHeight: 1.6,
+      }}>
+        Note: MD5 and SHA-1 are legacy algorithms and should not be used for security-sensitive integrity or password storage. Prefer SHA-256 or SHA-512.
+      </div>
+    </div>
+  );
+}
