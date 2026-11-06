@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 
 const ALGORITHMS = ["MD5", "SHA-1", "SHA-256", "SHA-512"];
+const MAX_TEXT_BYTES = 1024 * 1024;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 // MD5 implementation (pure JS, since WebCrypto doesn't support MD5)
 function md5(input) {
@@ -53,15 +55,24 @@ function md5(input) {
 }
 
 async function generateHash(text, algo) {
-  if (algo === "MD5") return md5(new TextEncoder().encode(text));
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
+  if (data.byteLength > MAX_TEXT_BYTES) {
+    throw new Error("Text input exceeds the 1 MiB safety limit.");
+  }
+  if (algo === "MD5") return md5(data);
   const hashBuffer = await crypto.subtle.digest(algo, data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function generateFileHash(file, algo) {
+  if (!file || typeof file.size !== "number") {
+    throw new Error("Select a valid file.");
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    throw new Error("File exceeds the 20 MiB safety limit.");
+  }
   const buffer = await file.arrayBuffer();
   if (algo === "MD5") {
     return md5(new Uint8Array(buffer));
@@ -88,16 +99,25 @@ export default function HashTool() {
   const [fileLoading, setFileLoading] = useState(false);
   const [compareHash, setCompareHash] = useState("");
   const [fileVerifyResult, setFileVerifyResult] = useState(null);
+  const [fileError, setFileError] = useState("");
+  const [textError, setTextError] = useState("");
 
   const handleGenerate = useCallback(async () => {
-    if (!inputText.trim()) return;
+    if (inputText.length === 0) return;
     setLoading(true);
-    const results = {};
-    for (const a of ALGORITHMS) {
-      results[a] = await generateHash(inputText, a);
+    setTextError("");
+    try {
+      const results = {};
+      for (const a of ALGORITHMS) {
+        results[a] = await generateHash(inputText, a);
+      }
+      setHashes(results);
+    } catch (error) {
+      setHashes({});
+      setTextError(error instanceof Error ? error.message : "Could not hash this input.");
+    } finally {
+      setLoading(false);
     }
-    setHashes(results);
-    setLoading(false);
   }, [inputText]);
 
   const handleCopy = (hash, key) => {
@@ -112,16 +132,26 @@ export default function HashTool() {
     setVerifyResult(computed.toLowerCase() === verifyHash.toLowerCase().trim());
   }, [verifyInput, verifyHash, verifyAlgo]);
 
-  const handleFile = useCallback(async (e) => {
-    const file = e.target.files[0];
+  const processFile = useCallback(async (file) => {
     if (!file) return;
+    setFileError("");
+    setFileHash("");
     setFileName(file.name);
-    setFileLoading(true);
     setFileVerifyResult(null);
-    const hash = await generateFileHash(file, fileAlgo);
-    setFileHash(hash);
-    setFileLoading(false);
+    setFileLoading(true);
+    try {
+      const hash = await generateFileHash(file, fileAlgo);
+      setFileHash(hash);
+    } catch (error) {
+      setFileError(error instanceof Error ? error.message : "Could not hash this file.");
+    } finally {
+      setFileLoading(false);
+    }
   }, [fileAlgo]);
+
+  const handleFile = useCallback((e) => {
+    processFile(e.target.files?.[0]);
+  }, [processFile]);
 
   const handleFileVerify = () => {
     if (!fileHash || !compareHash) return;
@@ -209,17 +239,18 @@ export default function HashTool() {
               onFocus={e => e.target.style.borderColor = "#4d96ff"}
               onBlur={e => e.target.style.borderColor = "#1e1e3a"}
             />
-            <button onClick={handleGenerate} disabled={loading || !inputText.trim()} style={{
+            <button onClick={handleGenerate} disabled={loading || inputText.length === 0} style={{
               alignSelf: "flex-start",
               background: "linear-gradient(135deg, #4d96ff, #6bcb77)",
               color: "#000", border: "none", borderRadius: 8,
               padding: "12px 32px", fontFamily: "inherit", fontWeight: 700,
               fontSize: 14, cursor: loading ? "not-allowed" : "pointer",
-              letterSpacing: "0.08em", opacity: (!inputText.trim() || loading) ? 0.5 : 1,
+              letterSpacing: "0.08em", opacity: (inputText.length === 0 || loading) ? 0.5 : 1,
               transition: "opacity 0.2s",
             }}>
               {loading ? "HASHING..." : "GENERATE ALL HASHES"}
             </button>
+            {textError && <div role="alert" style={{ color: "#ff6b6b", fontSize: 13 }}>{textError}</div>}
 
             {Object.keys(hashes).length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -340,10 +371,9 @@ export default function HashTool() {
               background: "#0d0d1a", transition: "border-color 0.2s",
             }}
               onDragOver={e => e.preventDefault()}
-              onDrop={async e => {
+              onDrop={e => {
                 e.preventDefault();
-                const file = e.dataTransfer.files[0];
-                if (file) { setFileName(file.name); setFileLoading(true); const h = await generateFileHash(file, fileAlgo); setFileHash(h); setFileLoading(false); }
+                processFile(e.dataTransfer.files?.[0]);
               }}
             >
               <input type="file" onChange={handleFile} style={{ display: "none" }} />
@@ -353,6 +383,7 @@ export default function HashTool() {
             </label>
 
             {fileLoading && <div style={{ color: "#4d96ff", fontSize: 13 }}>Computing hash...</div>}
+            {fileError && <div role="alert" style={{ color: "#ff6b6b", fontSize: 13 }}>{fileError}</div>}
 
             {fileHash && (
               <div style={{
