@@ -1,5 +1,15 @@
 # 🔐 Hash Forge — Cryptographic Hash Generator & Verifier
 
+
+## Get this repository
+
+Clone the current project (this repository's canonical GitHub URL), then follow the installation and usage steps below.
+
+```bash
+git clone https://github.com/cyberworlduniversity/hash-forge.git
+cd hash-forge
+```
+
 A modern, browser-based cryptographic hashing tool built with **React** and the **Web Crypto API**.
 
 ---
