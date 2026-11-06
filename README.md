@@ -109,3 +109,51 @@ MIT License — free to use, modify, and distribute.
 ---
 
 *Built for hemanathan115 | Hash Forge v1.0*
+
+
+## Repository Quick Start
+
+Clone the canonical repository:
+
+```bash
+git clone https://github.com/cyberworlduniversity/hash-forge.git
+cd hash-forge
+```
+
+### Requirements and installation
+
+- Node.js 18+
+
+```bash
+npm install
+```
+
+### Start the application
+
+```bash
+npm run dev
+```
+
+Open the local Vite URL printed in the terminal (normally http://localhost:5173). Use npm run build for a production bundle.
+
+### Build / validation
+
+```bash
+npm run build
+```
+
+MD5 and SHA-1 are legacy algorithms and should not be used for security-sensitive integrity or password storage.
+
+### Application flow
+
+```mermaid
+flowchart TD
+    A[Open application] --> B[Load frontend and server]
+    B --> C[Accept user input]
+    C --> D{Input valid?}
+    D -- No --> E[Show validation message]
+    D -- Yes --> F[Run hash forge analysis]
+    F --> G[Render results]
+    G --> H[Finish]
+    E --> H
+```
