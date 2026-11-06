@@ -157,3 +157,8 @@ flowchart TD
     G --> H[Finish]
     E --> H
 ```
+
+
+## Input size safeguards
+
+To avoid browser memory exhaustion, text inputs are limited to 1 MiB and file hashing is limited to 20 MiB. Files are hashed locally in your browser; larger files are rejected before they are read into memory.
